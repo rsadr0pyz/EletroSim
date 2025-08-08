@@ -3,13 +3,13 @@ from constants import *
 
 def _initialize_dimension(ds, length, v0, axis):
             if v0 == None:
-                size = int(length/ds) + 1
-                length = int(length/ds) * ds
+                size = int(length/ds) +1
+                length = (size-1) * ds
                 shape = [1, 1, 1]
                 shape[axis] = size
-                return size, length, np.arange(size).reshape(shape)
+                return size, length, np.arange(size).reshape(shape) * ds
             else:
-                return 0, length, int(v0/ds)
+                return 0, length, v0
             
 # Contains all the relevant parameters for the calculation
 class Parameters:
@@ -22,9 +22,9 @@ class Parameters:
 
         self.ds = ds
 
-        self.x_size, self.width, self.x = _initialize_dimension(ds, width, x0, 0)
-        self.y_size, self.height, self.y = _initialize_dimension(ds, height, y0, 1)
-        self.z_size, self.depth, self.z = _initialize_dimension(ds, depth, z0, 2)
+        self.z_size, self.depth, self.z = _initialize_dimension(ds[2], depth, z0, 0)
+        self.y_size, self.height, self.y = _initialize_dimension(ds[1], height, y0, 1)
+        self.x_size, self.width, self.x = _initialize_dimension(ds[0], width, x0, 2)
 
         self.w0 = frequency*2*np.pi
         k = self.w0 * np.sqrt(EPS0*MU0)
