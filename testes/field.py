@@ -13,17 +13,11 @@ class GridSet(Enum):
 class DiscreteVectorField:
     
     
-    def __init__(self, side_length: int, grid_set : GridSet):
+    def __init__(self, side_length: int):
         self.side_length = side_length
-
-        if grid_set == GridSet.BASE:
-            fx = np.zeros([side_length, side_length, side_length]) 
-            fy = np.zeros([side_length, side_length, side_length]) 
-            fz = np.zeros([side_length, side_length, side_length]) 
-        elif grid_set == GridSet.SUPPORT:
-            fx = np.zeros([side_length-1, side_length-1, side_length]) 
-            fy = np.zeros([side_length-1, side_length-1, side_length]) 
-            fz = np.zeros([side_length, side_length, side_length]) 
+        fx = np.zeros([side_length, side_length, side_length]) 
+        fy = np.zeros([side_length, side_length, side_length]) 
+        fz = np.zeros([side_length, side_length, side_length]) 
         self.field = np.stack((fx, fy, fz), axis=-1)
 
     def compute_curl(self):
@@ -56,10 +50,10 @@ imp0 = np.sqrt(mu0 / eps0)
 # CONSTANT PARAMETERS
 
 FPS = 60
-SPACE_SIDE_LENGTH = 600 # m
-MAXIMUM_FREQUENCE = 5e6 # 1 Mhz
+SPACE_SIDE_LENGTH = 0.6 # m
+MAXIMUM_FREQUENCE = 5e9 # 1 Ghz
 SIMULATION_TIME = 10
-TIME_SCALE = 1e-6
+TIME_SCALE = 1e-9
 
 # DERIVED PARAMETERS
 frame_time = 1/FPS 
@@ -68,24 +62,23 @@ dt = ds/(2 * c0)
 jmax = int(SPACE_SIDE_LENGTH  / ds)
 
 e_field = DiscreteVectorField(jmax)
-h_field = DiscreteVectorField(jmax-1)
+h_field = DiscreteVectorField(jmax)
 
 # PLOTS
 jsource = int(jmax/2)
 fig = plt.figure()
 ax = fig.add_subplot()
 Explot = ax.pcolormesh(e_field.field[:, jsource, :, 0])
-Explot.set_norm(matplotlib.colors.Normalize(vmin=-3, vmax=3))
+Explot.set_norm(matplotlib.colors.Normalize(vmin=-0.001, vmax=0.001))
 
 
 ## SOURCE
 
 
 def source_function(t):
-    f0 = 3e6
+    f0 = .5e9
     w0 = 2 * np.pi * f0
-    tau = 1/5
-    return np.exp(-((t/TIME_SCALE - 1)**2/tau**2)) * np.sin(w0*t)
+    return np.sin(w0*t)
 
 # SIMULATION
 
@@ -96,20 +89,21 @@ current_n = 0
 def update(_):
     global h_field, e_field, current_n
     for n in range(current_n, current_n+simulation_steps_per_frame):
-        hrx, hry, hrz = h_field.compute_curl()
-        e_field.field[0:-1, 1:-1, 1:-1, 0] += 0.5 * hrx
-        e_field.field[1:-1, 0:-1, 1:-1, 1] += 0.5 * hry
-        e_field.field[1:-1, 1:-1, 0:-1, 2] += 0.5 * hrz
+
+        e_field.field[1:, 1:, 1:, 0] += 0.5 * (h_field.field[1:, 1:, 1:, 2] - h_field.field[1:, 0:-1, 1:, 2] - h_field.field[1:, 1:, 1:, 1] + h_field.field[1:, 1:, 0:-1, 1])
+        e_field.field[1:, 1:, 1:, 1] += 0.5 * (h_field.field[1:, 1:, 1:, 0] - h_field.field[1:, 1:, 0:-1, 0] - h_field.field[1:, 1:, 1:, 2] + h_field.field[0:-1, 1:, 1:, 2])
+        e_field.field[1:, 1:, 1:, 2] += 0.5 * (h_field.field[1:, 1:, 1:, 1] - h_field.field[0:-1, 1:, 1:, 1] - h_field.field[1:, 1:, 1:, 0] + h_field.field[1:, 0:-1, 1:, 0])
 
         e_field.field[jsource, jsource, jsource, 2] = source_function(n*dt)
 
-        erx, ery, erz = e_field.compute_curl()
-        h_field.field[:, :, :, 0] -= 0.5 * erx[0:-1, :, :]
-        h_field.field[:, :, :, 1] -= 0.5 * ery[:, 0:-1, :]
-        h_field.field[:, :, :, 2] -= 0.5 * erz[:, :, 0:-1]
+        h_field.field[1:, 1:-1, 1:-1, 0] += 0.5 * (e_field.field[1:, 1:-1, 2:, 1] - e_field.field[1:, 1:-1, 1:-1, 1] - e_field.field[1:, 2:, 1:-1, 2] + e_field.field[1:, 1:-1, 1:-1, 2])
+        h_field.field[1:-1, 1:, 1:-1, 1] += 0.5 * (e_field.field[2:, 1:, 1:-1, 2] - e_field.field[1:-1, 1:, 1:-1, 2] - e_field.field[1:-1, 1:, 2:, 0] + e_field.field[1:-1, 1:, 1:-1, 0])
+        h_field.field[1:-1, 1:-1, 1:, 2] += 0.5 * (e_field.field[1:-1, 2:, 1:, 0] - e_field.field[1:-1, 1:-1, 1:, 0] - e_field.field[2:, 1:-1, 1:, 1] + e_field.field[1:-1, 1:-1, 1:, 1])
+
 
     current_n += simulation_steps_per_frame
-    Explot.set_array(e_field.field[:, :, jsource, 2])
+    mag = (np.sqrt(np.sum(np.pow(e_field.field,2), axis=-1)))
+    Explot.set_array(mag[jsource, :, :])
     ax.set_title(int(current_n * dt / TIME_SCALE))
 
 animation = ani.FuncAnimation(fig=fig, func=update, frames=max_frames, interval=1000/FPS)
