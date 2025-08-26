@@ -1,18 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
+import matplotlib
 
-t1 = np.random.rand(3,3)
-FPS = 1
+fig = plt.figure(figsize=[8,4])
+fig.suptitle("E Field Magnitude: 0 ns")
 
-fig, ax = plt.subplots()
-
-plot = ax.pcolormesh(t1)
-print(t1)
-
-def update(_):
-    t1 = np.random.rand(3,3)
-    plot.set_array(t1)
-
-animation = ani.FuncAnimation(fig=fig, func=update, frames=FPS * 10, interval=1/FPS*1000)
+ax1, ax2 = fig.subplots(1, 2, sharey=True)
+Explot = ax1.pcolormesh([[0,0,0], [1,1,1]])
+Explot.set_norm(matplotlib.colors.Normalize(vmin=0, vmax=0.01))
 plt.show()
